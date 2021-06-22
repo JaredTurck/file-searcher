@@ -25,4 +25,4 @@ This photo shows what the programs GUI looks like
 
 ![Image of example search by files run](https://github.com/JaredTurck/file-searcher/blob/main/bin/img1.png)
 
-Here I use the file searcher, to lits athe top 10 largest folders on my computer
+Here I use the file searcher, to list the top 10 largest folders on my computer
