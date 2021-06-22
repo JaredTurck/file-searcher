@@ -1,4 +1,4 @@
-import os, time, pathlib, hashlib, random, tkinter
+import os, time, pathlib, hashlib, random, tkinter, threading
 from tkinter import filedialog
 
 # find largest file
@@ -23,6 +23,9 @@ class find_largest():
             '.docx', '.xml', '.pam', '.htm', '.dotm', '.xls', '.xlsx', '.ptx', '.docm', '.rtf', '.pdf', '.otm',
             '.htm, .html', '.xltx', '.prn', '.wps', '.df', '.psx', '.ps', '.html', '.slk', '.xla', '.dotx',
             '.tf', '.ot', '.dbf', '.log', '.py']
+
+        self.console_output = output_window()
+        threading.Thread(target=self.console_output.create_window).start()
         
     def walk(self, args):
         """ Walk through files in file system, lists all files and sub files"""
@@ -34,7 +37,8 @@ class find_largest():
         do_subdirs, self.search_term = args[2], args[3].lower()
         self.walking_in = ["folders" if do_dirs == True else "files"][0]
         self.update_log("", new_log=True)
-        self.print_log('[+] walking '+self.walking_in+' in ' + name)
+        #self.print_log('[+] walking '+self.walking_in+' in ' + name)
+        self.print_log(f"[+] walking {self.walking_in} in {name}")
         for path, dirs, files in os.walk(name):
             # process folders
             if do_dirs == True:
@@ -70,7 +74,7 @@ class find_largest():
                                             self.search_results.append(p)
                                             
                             except Exception as error:
-                                self.print_log("[-] Error thrown when process file!", error)
+                                self.print_log(f"[-] Error thrown when process file! {error}!")
                         self.paths[path] = sum(sub_files)
 
                 # process sub folders
@@ -84,7 +88,7 @@ class find_largest():
                                 sub_folder_size += os.path.getsize(p)
                                 self.update_fps()
                             except Exception as error:
-                                self.print_log("[-] Error thrown when process file!", error)
+                                self.print_log(f"[-] Error thrown when process file! {error}!")
                         if self.dir_first_run == True:
                             self.total_dir_count += len(sub_dir)
 
@@ -134,9 +138,9 @@ class find_largest():
                 if self.stop_count == True:
                     prct = round((self.dirs_count / self.total_dir_count)*100, 2)
                     dir_test = " files! fps="+self.cfps + " dirs="+str(self.dirs_count)+" prct="+str(prct)
-                    self.print_log('[+] Walked', "{:,}".format(self.final_file_count) + dir_test)
+                    self.print_log(f"[+] Walked {self.final_file_count:,d}{dir_test}")
                 else:
-                    self.print_log('[+] Walked', "{:,}".format(self.count), "files! fps="+self.cfps)
+                    self.print_log(f"[+] Walked {self.count:,d} files! fps={self.cfps}")
 
     def update_log(self, data, new_log=False, close=False):
         """ Create log file if it doesn't exist"""
@@ -149,18 +153,18 @@ class find_largest():
             try:
                 self.log_handler.write(data.encode("utf-8") + b"\n")
             except Exception as error:
-                print("[-] Failed to write to log!", error)
+                self.console_output.log("[-] Failed to write to log!", error)
         elif os.path.exists(self.log_filename) == False:
             open(self.log_filename, "w").close()
 
         if close == True:
             self.log_handler.close()
 
-    def print_log(self, *text):
+    def print_log(self, text, *args):
         """ Print text and write it to log"""
-        txt = " ".join([str(i) for i in list(text)])
-        print(txt)
-        self.update_log(txt)
+        self.console_output.log(text)
+        print(text)
+        self.update_log(text)
 
     def gb(self, num):
         """ Convert bytes to diffrent sizes of storage"""
@@ -184,7 +188,8 @@ class find_largest():
     def first_100(self, step=100):
         """ print the first X number of results"""
         # folders and files
-        self.print_log("\n", step, "largest "+self.walking_in+":\n"+("-"*30))
+        #self.print_log("\n" + step + "largest "+self.walking_in+":\n"+("-"*30))
+        self.print_log(f"\n{step} largest {self.walking_in}:\n{'-'*30}")
         count = 1
         for file in self.files[0:step]:
             self.print_log(str(count)+"|\t" + self.gb(file[0]) + "\t" + file[1].replace('\\', '/'))
@@ -193,19 +198,19 @@ class find_largest():
 
         # file search results
         if self.search_term != b"":
-            print("\n Search Results for "+str(self.search_term)[1:]+":\n"+("-"*30))
+            self.console_output.log("\n Search Results for "+str(self.search_term)[1:]+":\n"+("-"*30))
             if len(self.search_results) == 0:
-                print("No results found!")
+                self.console_output.log("No results found!")
             else:
                 for i,result in enumerate(self.search_results):
-                    print(str(i+1)+"|\t" + result.replace("\\", "/"))
+                    self.console_output.log(str(i+1)+"|\t" + result.replace("\\", "/"))
         os.popen("pause")
 
     def write_csv(self):
         """ Write the results to a CSV file"""
         # paths
         if len(self.paths.keys()) > 0:
-            print("[+] Writing Paths to CSV!")
+            self.console_output.log("[+] Writing Paths to CSV!")
             path_writer = open("paths.csv", "wb")
             for key in self.paths.keys():
                 path_writer.write((str(self.paths[key])+","+key+"\n").encode("utf-8"))
@@ -213,7 +218,7 @@ class find_largest():
 
         # files
         if len(self.files) > 0:
-            print("[+] Writing Files to CSV!")
+            self.console_output.log("[+] Writing Files to CSV!")
             file_writer = open("files.csv", "wb")
             for item in self.files:
                 file_writer.write((str(item[0])+","+item[1]+"\n").encode("utf-8"))
@@ -292,10 +297,10 @@ class sort_files():
                     unique.append(filehash)
                 else: 
                     os.remove(full_path)
-                    print("[+] removed duplicate " + filename)
+                    self.console_output.log("[+] removed duplicate " + filename)
             count += 1
             if count % self.check_count == 0:
-                print("checking file " + str(filename))
+                self.console_output.log("checking file " + str(filename))
                 
     def rename_files(self, path):
         """ Renames files in a directory"""
@@ -312,7 +317,7 @@ class sort_files():
                     count += 1
 
                     if count % 200 == 0:
-                        print("["+str(count)+"]renamed file " + file)
+                        self.console_output.log("["+str(count)+"]renamed file " + file)
 
 def remove_dupes_main():
     # path
@@ -328,10 +333,10 @@ def remove_dupes_main():
     while itter.isdigit() == False:
         itter = input("Invalid Input!\nNo. itterations: ")
 
-    print("Starting!")
+    self.console_output.log("Starting!")
     for i in range(1, int(itter)+1):
         sort.remove_duplicates(path)
-        print("[+] Itteration "+str(i)+"/"+str(itter)+" Complete!")
+        self.console_output.log("[+] Itteration "+str(i)+"/"+str(itter)+" Complete!")
 
     # rename files
     sort.rename_files(path)
@@ -366,7 +371,7 @@ class GUI():
         finder = find_largest()
 
         if self.select_dir == True:
-            print("Please Select a directory!")
+            self.console_output.log("Please Select a directory!")
             return
         
         self.select_dir = True
@@ -433,6 +438,23 @@ class GUI():
         self.add_button(self.top, "Remove duplicate files by hash", self.button_callback, arg=6)
         self.add_title(self.top, " ")
 
+class output_window():
+    def __init__(self):
+        self.row_count = 0
+        self.win_width = 200
+
+    def create_window(self):
+        self.top = tkinter.Tk()
+        self.top.title("Output")
+        self.top.geometry("800x500")
+        self.txt = tkinter.Text(self.top, height=60, width=self.win_width)
+        self.top.mainloop()
+
+    def log(self, text, error=None):
+        self.txt.insert(tkinter.END, text+"\n")
+        self.txt.pack()
+
 if __name__ == "__main__":
     menu = GUI()
     menu.menu()
+    menu.top.mainloop()
