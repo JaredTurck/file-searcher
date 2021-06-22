@@ -433,5 +433,6 @@ class GUI():
         self.add_button(self.top, "Remove duplicate files by hash", self.button_callback, arg=6)
         self.add_title(self.top, " ")
 
-menu = GUI()
-menu.menu()
+if __name__ == "__main__":
+    menu = GUI()
+    menu.menu()
