@@ -6,6 +6,8 @@
         "iostream": "cpp",
         "thread": "cpp",
         "chrono": "cpp",
-        "initializer_list": "cpp"
+        "initializer_list": "cpp",
+        "vector": "cpp",
+        "iosfwd": "cpp"
     }
 }
