@@ -15,6 +15,7 @@ using namespace std;
 
 int file_count = 0;
 int dir_count = 0;
+int last_file_count = 1;
 bool running = true;
 string current_dir = "";
 string line = "";
@@ -25,6 +26,7 @@ string filename;
 vector<string> output_dirs = {};
 vector<string> search_results = {};
 vector<string> systemlinks = {};
+vector<string> folders_and_subdirs = {};
 string systemlink_path;
 string path;
 string extension;
@@ -35,22 +37,42 @@ vector<string> file_types = {
     ".htm,.html",".xltx",".prn",".wps",".df",".psx",".ps",".html",".slk",".xla",".dotx",
     ".tf",".ot",".dbf",".py"
 };
-vector<string> largest_folders;
 string file_size = "";
 
 map<long long, string> map_filenames;
 vector<long long> largest_files;
+map<long long, string> map_folders;
+vector<long long> largest_folders;
+map<long long, string> map_folders_and_subdirs;
+vector<long long> largest_folders_and_subdirs;
 long long int_file_size;
+
+int is_number(string str) {
+    if (str.length() == 0) {return false;}
+    for (char const &c : str) {
+        if (isdigit(c) == 0) {
+            return false;
+        }
+    }
+    return true;
+}
 
 DWORD WINAPI output(LPVOID lpParameter) {
     int last_count;
     int fps;
+    int current_percent;
     while (running == true) {
         last_count = file_count;
         system("timeout 1 > nul");
         fps = file_count - last_count;
         if (running == true) {
-            cout << "Processed " << file_count << " files! FPS=" << fps << endl;
+            if (last_file_count > 1) {
+                int percent = (file_count * 100) / last_file_count;
+                cout << "Processed " << file_count << " files! FPS=" << fps << ", " << percent << " complete" << endl;
+            } else {
+                cout << "Processed " << file_count << " files! FPS=" << fps << endl;
+            }
+            
         }
     }
     return 0;
@@ -73,6 +95,50 @@ void search_file(string filename, string term) {
                 }
                 line_num++;
             }
+        }
+    }
+}
+
+void search_folders_and_subdirs() {
+    char buffer[256];
+    int logging;
+    string output;
+    string command;
+    int index;
+    float percent;
+
+    //folders_and_subdirs
+    for (int i = 0; i < folders_and_subdirs.size(); i++) {
+
+        // convert string to char
+        current_dir = folders_and_subdirs.at(i);
+        command = "dir \"" + current_dir.substr(0, current_dir.length() - 1) + "\" /s /a";
+        strcpy(buffer, command.c_str());
+        FILE* pipe = _popen(buffer, "r");
+
+        logging = false;
+        output = "";
+
+        // get size
+        while (fgets(buffer, sizeof buffer, pipe) != NULL) {
+            file_count++;
+            if (string(buffer).find("Total Files Listed") != string::npos) {
+                fgets(buffer, sizeof buffer, pipe);
+                break;
+            }
+        }
+
+        // extract size
+        filesize = string(buffer);
+        filesize = filesize.substr(0, filesize.find("bytes"));
+        filesize = filesize.substr(filesize.find("File(s)") + 7, filesize.length());
+        filesize.erase(remove(filesize.begin(), filesize.end(), ' '), filesize.end());
+        filesize.erase(remove(filesize.begin(), filesize.end(), ','), filesize.end());
+
+        if (is_number(filesize) == true) {
+            int_file_size = stoll(filesize);
+            map_folders_and_subdirs.insert(pair<long long, string>(int_file_size, current_dir));
+            largest_folders_and_subdirs.push_back(int_file_size);
         }
     }
 }
@@ -102,16 +168,6 @@ int lowest_index;
 int x_index;
 string temp;
 
-int is_number(string str) {
-    if (str.length() == 0) {return false;}
-    for (char const &c : str) {
-        if (isdigit(c) == 0) {
-            return false;
-        }
-    }
-    return true;
-}
-
 vector<string> size_labels = {" Bytes", "KB", "MB", "GB", "TB", "PB"};
 long double current_number;
 int format_counter;
@@ -128,7 +184,7 @@ string format_size(long long number) {
 
 int spaces_counter;
 void get_file_data(string line, string current_dir, string search_term, bool files_only, bool filename_search, bool content_search, 
-    bool maxsize, bool systemlink_search) {
+    bool maxsize_files, bool systemlink_search, bool maxsize_folder) {
 
     if (line.length() > 15) {
         // check if line contains file
@@ -155,7 +211,7 @@ void get_file_data(string line, string current_dir, string search_term, bool fil
                 map_filenames.insert(pair<long long, string>(int_file_size, path));
 
                 // filesize search
-                if (maxsize == true) {
+                if (maxsize_files == true) {
                     largest_files.push_back(int_file_size);
                 }
                 
@@ -180,12 +236,27 @@ void get_file_data(string line, string current_dir, string search_term, bool fil
             }
 
         }
+
+        // largest folders search
+        if (maxsize_folder == true && line.find("File(s)") != string::npos) {
+
+            line = line.substr(0, line.find("bytes"));
+            line = line.substr(line.find("File(s)") + 7, line.length());
+            line.erase(remove(line.begin(), line.end(), ' '), line.end());
+            line.erase(remove(line.begin(), line.end(), ','), line.end());
+
+            int_file_size = stoll(line);
+            map_folders.insert(pair<long long, string>(int_file_size, current_dir));
+            largest_folders.push_back(int_file_size);
+
+        }
+
     }
 
 }
 
-void search_for_file(const char* command, string search_term, bool files_only, bool filename_search, bool content_search, bool maxsize,
-        bool systemlink_search) {
+void search_for_file(const char* command, string search_term, bool files_only, bool filename_search, bool content_search, bool maxsize_files,
+        bool systemlink_search, bool maxsize_folder, bool folders_and_subdirs_search) {
 
     CreateThread(NULL, 0, output, NULL, 0, NULL);
     char buffer[256];
@@ -205,15 +276,24 @@ void search_for_file(const char* command, string search_term, bool files_only, b
             // check if line contains a directory
             if (line.find(" Directory of") != string::npos) {
                 current_dir = line.substr(14);
+                if (folders_and_subdirs_search == true) {
+                    folders_and_subdirs.push_back(current_dir);
+                }
                 dir_count++;
 
             } else {
-                get_file_data(line, current_dir, search_term, files_only, filename_search, content_search, maxsize, systemlink_search);
+                get_file_data(line, current_dir, search_term, files_only, filename_search, content_search, maxsize_files, 
+                    systemlink_search, maxsize_folder);
             }
 
         } catch (int error) {
             cout << "error thrown!" << endl;
         }
+    }
+
+    // start folders sub dir search
+    if (folders_and_subdirs_search == true) {
+        search_folders_and_subdirs();
     }
 
     // filename result
@@ -244,7 +324,7 @@ void search_for_file(const char* command, string search_term, bool files_only, b
     }
 
     // largest files
-    if (maxsize == true) {
+    if (maxsize_files == true) {
         running = false;
         cout << "\n-------- Largest files --------\n" << endl;
 
@@ -256,6 +336,40 @@ void search_for_file(const char* command, string search_term, bool files_only, b
             if (i > 200) {break;}
             current = largest_files.at(i);
             cout << format_size(current) << "|\t" << map_filenames.at(current) << endl;
+
+        }
+    }
+
+    // largest folders
+    if (maxsize_folder == true) {
+        running = false;
+        cout << "\n-------- Largest folders --------\n" << endl;
+
+        sort(largest_folders.begin(), largest_folders.end());
+        reverse(largest_folders.begin(), largest_folders.end());
+        long long current;
+
+        for (int i = 1; i < largest_folders.size(); i++) {
+            if (i > 200) {break;}
+            current = largest_folders.at(i);
+            cout << format_size(current) << "|\t" << map_folders.at(current);
+
+        }
+    }
+
+    // largest folders and subdirs
+    if (folders_and_subdirs_search == true) {
+        running = false;
+        cout << "\n-------- Largest folders and sub folders --------\n" << endl;
+
+        sort(largest_folders_and_subdirs.begin(), largest_folders_and_subdirs.end());
+        reverse(largest_folders_and_subdirs.begin(), largest_folders_and_subdirs.end());
+        long long current;
+
+        for (int i = 1; i < largest_folders_and_subdirs.size(); i++) {
+            if (i > 200) {break;}
+            current = largest_folders_and_subdirs.at(i);
+            cout << format_size(current) << "|\t" << map_folders_and_subdirs.at(current);
 
         }
     }
@@ -281,8 +395,8 @@ void search_for_file(const char* command, string search_term, bool files_only, b
 
 void search_by_filename() {
     // menu
-    cout << "V2\nMenu:\n1. Search by filename\n2. Search by file content\n3. Search by both filename and content";
-    cout << "\n4. Find Largest files\n5. Find System Links\n> ";
+    cout << "Menu:\n1. Search by filename\n2. Search by file content\n3. Search by both filename and content";
+    cout << "\n4. Find Largest files\n5. Find Largest folders\n6. Find Largest folders (and sub folders)\n7. Find System Links\n> ";
     
     string choice;
     getline(cin, choice);
@@ -295,7 +409,7 @@ void search_by_filename() {
 
     // search term
     string search_term = "";
-    if (choice != "4" && choice != "5") {
+    if (choice != "4" && choice != "5" && choice != "6") {
         cout << "Enter Search term: ";
         getline(cin, search_term);
     }
@@ -306,15 +420,19 @@ void search_by_filename() {
 
     // execute command
     if (choice == "1") {
-        search_for_file(buffer, search_term, false, true, false, false, false);
+        search_for_file(buffer, search_term, false, true, false, false, false, false, false);
     } else if (choice == "2") {
-        search_for_file(buffer, search_term, false, false, true, false, false);
+        search_for_file(buffer, search_term, false, false, true, false, false, false, false);
     } else if (choice == "3") {
-        search_for_file(buffer, search_term, false, true, true, false, false);
+        search_for_file(buffer, search_term, false, true, true, false, false, false, false);
     } else if (choice == "4") {
-        search_for_file(buffer, search_term, false, false, false, true, false);
+        search_for_file(buffer, search_term, false, false, false, true, false, false, false);
     } else if (choice == "5") {
-        search_for_file(buffer, search_term, false, false, false, false, true);
+        search_for_file(buffer, search_term, false, false, false, false, false, true, false);
+    } else if (choice == "6") {
+        search_for_file(buffer, search_term, false, false, false, false, false, false, true);
+    } else if (choice == "7") {
+        search_for_file(buffer, search_term, false, false, false, false, true, false, false);
     }
     
 }
