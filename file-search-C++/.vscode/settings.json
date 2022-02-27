@@ -8,6 +8,17 @@
         "chrono": "cpp",
         "initializer_list": "cpp",
         "vector": "cpp",
-        "iosfwd": "cpp"
+        "iosfwd": "cpp",
+        "regex": "cpp",
+        "xstddef": "cpp",
+        "string": "cpp",
+        "format": "cpp",
+        "xtree": "cpp",
+        "utility": "cpp",
+        "map": "cpp",
+        "algorithm": "cpp",
+        "iterator": "cpp",
+        "xmemory": "cpp",
+        "cmath": "cpp"
     }
 }
