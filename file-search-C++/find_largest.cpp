@@ -57,6 +57,43 @@ int is_number(string str) {
     return true;
 }
 
+string get_last_path() {
+    // get temp path
+    string line;
+    string user_input = "";
+    char buffer[256] = "echo %temp%";
+    FILE* pipe = _popen(buffer, "r");
+    while (fgets(buffer, sizeof buffer, pipe) != NULL) {}
+    string temp_path = string(buffer);
+    temp_path.erase(remove(temp_path.begin(), temp_path.end(), '\n'), temp_path.end());
+    //cout << string(buffer) << endl;
+
+    // read file
+    ifstream file(string(temp_path) + "\\find_largest_path.txt");
+    while (getline(file, line)) {}
+
+    if (line.length() == 0) {
+        // ask user for input
+        cout << "Enter path: ";
+        getline(cin, user_input);
+
+        // write to file
+        cout << "wrote to file" << endl;
+        ofstream file(string(temp_path) + "\\find_largest_path.txt");
+        file << user_input;
+        return user_input;
+
+    } else {
+        cout << "enter path or press enter to use " << line << ": ";
+        getline(cin, user_input);
+        if (user_input.length() == 0) {
+            return line;
+        } else {
+            return user_input;
+        }
+    }
+}
+
 DWORD WINAPI output(LPVOID lpParameter) {
     int last_count;
     int fps;
@@ -402,10 +439,10 @@ void search_by_filename() {
     getline(cin, choice);
 
     // get user input path
-    cout << "Enter path: ";
-    string user_input = "";
-    getline(cin, user_input);
-    string command = "dir \"" + user_input + "\" /s /a";
+    // cout << "Enter path: ";
+    // string user_input = "";
+    // getline(cin, user_input);
+    string command = "dir \"" + get_last_path() + "\" /s /a";
 
     // search term
     string search_term = "";
