@@ -2,8 +2,6 @@
 
 lets you search for files by there content or name, also remove duplicate files.
 
-![Image of GUI](https://github.com/JaredTurck/file-searcher/blob/main/bin/img2.png)
-
 This photo shows what the programs GUI looks like
 
 ## Largest files and folders
@@ -22,7 +20,5 @@ This photo shows what the programs GUI looks like
 - **Remove duplicate files by hash** - looks for duplicate files by generating a hash of each file in a directory and then comparing the hashes.
 
 ## Example run
-
-![Image of example search by files run](https://github.com/JaredTurck/file-searcher/blob/main/bin/img3.png)
 
 Here I use the file searcher, to list the top 10 largest sub folders in the videos directory on my computer.
